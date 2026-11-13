@@ -11,6 +11,7 @@ import {stateRoot, secureDir, listAuthorizationRequests, closeAuthorizationReque
 import {retainReceipts, readTail} from "./src/receipts.mjs";
 import {validName,namePattern} from "./src/policy.js";
 import {readAuthorization, signAuthorization} from "./src/session-authorization.js";
+import {initializeOptions} from "./src/local-options.mjs";
 
 const services = new Map();
 
@@ -77,7 +78,8 @@ async function withTaskTitles(rows, day) {
 
 // Runs inside Magpie's existing plugin host; no separate daemon or model call.
 export const ReceiptPage = async (_input, options = {}) => {
-  const port = Number(options.receiptPort || 3478);
+  await initializeOptions(options);
+  const port = Number(options.receiptPort || 3469);
   const key = options.receiptReadKey;
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || !/^[a-f0-9]{64}$/.test(key || "")) {
     console.warn("company_guard_receipt_page_not_configured"); return {};
@@ -188,7 +190,7 @@ export const ReceiptPage = async (_input, options = {}) => {
     const day = url.searchParams.get("date") || new Date().toISOString().slice(0,10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return send(400, {error:"invalid_date"});
     try {
-      const report = await getReceiptReport({day, root});
+      const report = await getReceiptReport({day, root, appLog:options.appLog});
       send(200, {...report, rows:await withTaskTitles(report.rows,day),readAt:new Date().toISOString()});
     } catch { console.warn("company_guard_receipt_page_read_failed"); send(500, {error:"receipt_read_failed"}); }
   });
